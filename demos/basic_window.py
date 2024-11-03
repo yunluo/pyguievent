@@ -11,7 +11,11 @@ def make_main_window() -> sg.Window:
         sg.Frame(
             "Tasks",
             [
-                [sg.Input(key="lot1", tooltip="此输入栏输入即事件触发", enable_events=True)],
+                [
+                    sg.Input(
+                        key="lot1", tooltip="此输入栏输入即事件触发", enable_events=True
+                    )
+                ],
                 [sg.Input(key="lot2", tooltip="此输入框输入后使用回车事件触发")],
                 [sg.B("win_fun"), sg.B("val_fun")],
                 [
@@ -57,17 +61,17 @@ def on_about():
     )
 
 
-@app.bind_event('保存配置')
+@app.bind_event("保存配置")
 def on_save_options():
     sg.popup("you click save options")
 
 
-@app.bind_event('lot1')
+@app.bind_event("lot1")
 def on_input_lot1(window: sg.Window, values: dict):
     window["lot4"].update(values.get("lot1"))
 
 
-@app.bind_event('lot2')
+@app.bind_event("lot2")
 def on_enter_lot2(window: sg.Window, values: dict):
     new_text = "您输入的是：{}".format(values.get("lot2"))
     window["lot3"].update(new_text)
@@ -123,15 +127,9 @@ def on_win_val_fun(window, values):
 def main():
     main_window = make_main_window()
 
-    # 使用add_event添加事件
-    app.add_event("关于", on_about)
-
-    # 未增加退出事件
-    # app.run_event(main_window)
-
     # 增加了一个Exit退出事件
     app.run_event(main_window, "Exit")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

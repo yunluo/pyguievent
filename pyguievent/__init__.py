@@ -58,7 +58,7 @@ class PySimpleEvent:
         """
         return self._event_handlers
 
-    def add_event(self, event: str, func: Callable) -> None:
+    def _add_event(self, event: str, func: Callable) -> None:
         """
         增加事件，把函数和事件做绑定，但是这里基本不用，实际是被下面的 bind_event调用
         :param event:事件名，是GUI组件的key
@@ -75,24 +75,22 @@ class PySimpleEvent:
 
     def bind_event(self, event_names: Union[str, list]):
         """
-        一个key只能对应一个事件函数
-        一个事件函数可以被多个key绑定
+        一个key只能对应一个事件函数,一个事件函数可以被多个key绑定
         举例：回车和确定按钮可以提交数据，但是按钮提交不可以即提交数据又做其他事
         :param event_names: 事件名，可以是字符串或列表，都是GUI的组件key
         :return: 装饰器函数
         """
 
         def decorator(func: Callable):
-
             if isinstance(event_names, str):
-                self.add_event(event_names, func)
+                self._add_event(event_names, func)
             elif isinstance(event_names, list):
                 for event_name in event_names:
-                    self.add_event(event_name, func)
+                    self._add_event(event_name, func)
             else:
                 logger.warning("Invalid event_names: {}".format(event_names))
 
-            # 预处理函数的参数信息以优化性能
+            # 预处理函数的参数信息
             func_args = func.__code__.co_varnames  # noqa 类型是tuple
             func_arg_count = func.__code__.co_argcount  # noqa 类型是init
             self._event_handlers[func] = {"args": func_args, "count": func_arg_count}
@@ -101,9 +99,9 @@ class PySimpleEvent:
 
         return decorator
 
-    def apply_event(self, window: sg.Window, event: str, values: dict) -> None:
+    def apply_event(self, window: sg.Window, event: str, values: dict):
         """
-        处理事件,需要注意的时，默认支持以下四种函数，技术实力有限，但是够用
+        处理事件,需要注意的时，默认支持以下四种函数，够用
         1.func()，这种无参数函数
         2.func(values=)，这种关键字参数函数，只有一个参数是值
         3.func(window=)，这种关键字参数函数，只有一个参数是窗口
@@ -162,8 +160,12 @@ class PySimpleEvent:
                 )
             )
 
-    def run_event(self, main_window: sg.Window, close_event: str = None,  # type: ignore
-                  window_log: bool = False) -> None:
+    def run_event(
+        self,
+        main_window: sg.Window,
+        close_event: str = None,  # type: ignore
+        window_log: bool = False,
+    ) -> None:
         """
         界面主循环
         :param main_window: 主窗口对象
