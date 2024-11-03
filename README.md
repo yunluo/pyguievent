@@ -16,6 +16,8 @@ def do_something():
     pass
 ~~~
 
+## 版本兼容性
+python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未测试
 
 ## 特别说明
 事件绑定和事件函数的有点问题，只能接受以下四种形式
