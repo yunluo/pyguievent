@@ -16,6 +16,9 @@ def do_something():
     pass
 ~~~
 
+## 安装
+pip install pyguievent
+
 ## 版本兼容性
 python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未测试
 
