@@ -12,7 +12,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __author__ = "yunluo"
 
 
@@ -99,13 +99,14 @@ class PySimpleEvent:
 
         return decorator
 
-    def apply_event(self, window: sg.Window, event: str, values: dict):
+    def apply_event(self, window: sg.Window, event: str, values: dict) -> None:
         """
-        处理事件,需要注意的时，默认支持以下四种函数，够用
+        处理事件,需要注意的时，默认支持以下五种函数，够用
         1.func()，这种无参数函数
         2.func(values=)，这种关键字参数函数，只有一个参数是值
         3.func(window=)，这种关键字参数函数，只有一个参数是窗口
-        4.func(values=, window=)，这种关键字参数函数，参数只有窗口和值，顺序无所谓
+        4.func(event=)，这种关键字参数函数，只有一个参数是事件
+        5.参数有window和event,values，顺序无所谓
         :param window:窗口对象
         :param event:事件名
         :param values:值
@@ -141,6 +142,8 @@ class PySimpleEvent:
             # 根据处理函数的参数名，决定如何调用处理函数
             if "window" in vars_name:
                 args.append(window)
+            if "event" in vars_name:
+                args.append(event)
             if "values" in vars_name:
                 args.append(values)
 

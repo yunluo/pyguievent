@@ -15,7 +15,7 @@ keywords = [
 setup(
     name="pyguievent",
     url="https://github.com/yunluo/pyguievent",
-    version="0.0.2",
+    version="0.0.3",
     license="GPL-3.0 license",
     author="yunluo",
     long_description=readme,

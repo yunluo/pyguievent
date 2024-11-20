@@ -29,8 +29,9 @@ python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未�
 1. func()，这种无参数函数
 2. func(values=)，这种关键字参数函数，只有一个参数是值
 3. func(window=)，这种关键字参数函数，只有一个参数是窗口
-4. func(window=,values=)，这种关键字参数函数，参数只有窗口和值，顺序无所谓
-5. sg.Window 窗口对象必须要使用finalize=True
+4. func(event=)，这种关键字参数函数，只有一个参数是事件
+5. 参数有window和event,values,顺序无所谓
+6. sg.Window 窗口对象必须要使用finalize=True
 
 
 ## 使用方法

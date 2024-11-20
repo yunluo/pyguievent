@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+# -*- coding: utf-8 -*-
 import PySimpleGUI as sg
 from pyguievent import PySimpleEvent
 
@@ -78,10 +80,11 @@ def on_enter_lot2(window: sg.Window, values: dict):
 
 
 @app.bind_event(["no_arg_fun", "关于"])
-def on_no_arg_fun():
+def on_no_arg_fun(event: str):
     sg.popup(
         "软件说明：",
         "新建任务",
+        event,
         title="关于程序",
         keep_on_top=True,
     )
@@ -128,7 +131,7 @@ def main():
     main_window = make_main_window()
 
     # 增加了一个Exit退出事件
-    app.run_event(main_window, "Exit")
+    app.run_event(main_window, "Exit", window_log=True)
 
 
 if __name__ == "__main__":
