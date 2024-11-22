@@ -1,3 +1,4 @@
+![Static Badge](https://img.shields.io/badge/Python-34-1?style=for-the-badge)  ![PyPI - Version](https://img.shields.io/pypi/v/pyguievent?style=for-the-badge&link=https%3A%2F%2Fpypi.org%2Fproject%2Fpyguievent%2F)  ![PyPI - Downloads](https://img.shields.io/pypi/dm/pyguievent?style=for-the-badge&link=https%3A%2F%2Fpypi.org%2Fproject%2Fpyguievent%2F)
 # 介绍
 基于PySimpleGUI的一个简单的事件循环库
 
