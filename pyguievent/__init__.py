@@ -106,8 +106,6 @@ class PySimpleEvent:
         :param event_names: 事件名，可以是字符串或列表，都是GUI的组件key
         :return: 装饰器函数
         """
-
-        @functools.wraps
         def decorator(func: Callable):
             if isinstance(event_names, str):
                 self._add_event(event_names, func)
