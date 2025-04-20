@@ -1,18 +1,19 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 import logging
+import functools
 from typing import Callable, Union
 
 try:
-    import PySimpleGUI as sg
+    import PySimpleGUI as sg  # noqa
 except ImportError:
     # 默认使用PySimpleGUI，但是在版本5后收费
     # 所以这里使用免费版的FreeSimpleGUI
-    import FreeSimpleGUI as sg
+    import FreeSimpleGUI as sg  # noqa
 
 logger = logging.getLogger(__name__)
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "yunluo"
 
 
@@ -47,6 +48,7 @@ class PySimpleEvent:
         初始化一个事件数据字典
         """
         self._event_handlers = {}
+        self.instances = {}
         # 定义回车键和特殊键的集合，用于后续判断特定键盘事件
         self._enter_keys = ("special 16777220", "special 16777221", "\r")
 
@@ -57,6 +59,38 @@ class PySimpleEvent:
         :return:事件字典
         """
         return self._event_handlers
+
+    @property
+    def get_windows(self) -> dict:
+        """
+        获取所有已启动的窗口
+        :return:事件字典
+        """
+        return self.instances
+
+    def singleton_window(self, func: Callable):
+        """
+        窗口单例化装饰器
+        :param func:
+        :return:
+        """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # 将参数组合为唯一键（例如：func_name + str(args) + str(kwargs)）
+            key = "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
+
+            if key in self.instances:
+                window = self.instances[key]
+                if not window.was_closed():
+                    window.bring_to_front()
+                    return window
+
+            new_window = func(*args, **kwargs)
+            self.instances[key] = new_window
+            return new_window
+
+        return wrapper
 
     def _add_event(self, event: str, func: Callable) -> None:
         """
@@ -164,10 +198,10 @@ class PySimpleEvent:
             )
 
     def run_event(
-        self,
-        main_window: sg.Window,
-        close_event: str = None,  # type: ignore
-        window_log: bool = False,
+            self,
+            main_window: sg.Window,
+            close_event: str = None,  # type: ignore
+            window_log: bool = False,
     ) -> None:
         """
         界面主循环
@@ -190,7 +224,6 @@ class PySimpleEvent:
                     logger.debug("Event: {}, Values: {}".format(event, values))
 
                 if window is None:
-                    logger.warning("No window found")
                     break
 
                 if event in (sg.WIN_CLOSED, close_event):
