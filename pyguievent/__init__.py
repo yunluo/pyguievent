@@ -11,10 +11,35 @@ except ImportError:
     # 所以这里使用免费版的FreeSimpleGUI
     import FreeSimpleGUI as sg  # noqa
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "yunluo"
+
+
+def singleton_window(func: Callable):
+    """
+    窗口单例化装饰器
+    :param func:
+    :return:
+    """
+    _instances = {}
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        key = "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
+
+        if key in _instances:
+            window = _instances[key]
+            if not window.was_closed():
+                window.bring_to_front()
+                return window
+
+        new_window = func(*args, **kwargs)
+        _instances[key] = new_window
+        return new_window
+
+    return wrapper
 
 
 class PySimpleEvent:
@@ -28,7 +53,7 @@ class PySimpleEvent:
 
     @app.bind_event("_CLICK_")
     def print_when_click(window: sg.Window, values: dict):
-        print('click it!')
+        print("click it!")
 
     @app.bind_event(["_CLICK1_","_CLICK2_"])
     def print_when_more_click(window: sg.Window, values: dict):
@@ -48,7 +73,6 @@ class PySimpleEvent:
         初始化一个事件数据字典
         """
         self._event_handlers = {}
-        self.instances = {}
         # 定义回车键和特殊键的集合，用于后续判断特定键盘事件
         self._enter_keys = ("special 16777220", "special 16777221", "\r")
 
@@ -60,38 +84,6 @@ class PySimpleEvent:
         """
         return self._event_handlers
 
-    @property
-    def get_windows(self) -> dict:
-        """
-        获取所有已启动的窗口
-        :return:事件字典
-        """
-        return self.instances
-
-    def singleton_window(self, func: Callable):
-        """
-        窗口单例化装饰器
-        :param func:
-        :return:
-        """
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # 将参数组合为唯一键（例如：func_name + str(args) + str(kwargs)）
-            key = "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
-
-            if key in self.instances:
-                window = self.instances[key]
-                if not window.was_closed():
-                    window.bring_to_front()
-                    return window
-
-            new_window = func(*args, **kwargs)
-            self.instances[key] = new_window
-            return new_window
-
-        return wrapper
-
     def _add_event(self, event: str, func: Callable) -> None:
         """
         增加事件，把函数和事件做绑定，但是这里基本不用，实际是被下面的 bind_event调用
@@ -100,7 +92,7 @@ class PySimpleEvent:
         :return:
         """
         if not callable(func):
-            logger.error("Function {} is not callable.".format(func))
+            _logger.error("Function {} is not callable.".format(func))
             return
 
         # 确保事件键的唯一性
@@ -115,6 +107,7 @@ class PySimpleEvent:
         :return: 装饰器函数
         """
 
+        @functools.wraps
         def decorator(func: Callable):
             if isinstance(event_names, str):
                 self._add_event(event_names, func)
@@ -122,7 +115,7 @@ class PySimpleEvent:
                 for event_name in event_names:
                     self._add_event(event_name, func)
             else:
-                logger.warning("Invalid event_names: {}".format(event_names))
+                _logger.warning("Invalid event_names: {}".format(event_names))
 
             # 预处理函数的参数信息
             func_args = func.__code__.co_varnames  # noqa 类型是tuple
@@ -158,7 +151,7 @@ class PySimpleEvent:
                 else None
             )
             # 如果没有找到处理函数，则直接返回
-            if handler is None:
+            if not handler:
                 # 这里不做任何提示，是因为在GUI开发中会有太多事件没有绑定处理函数的情况
                 # 典型的就是数据输入情况，会出现每个输入都在这里报错
                 return
@@ -184,14 +177,14 @@ class PySimpleEvent:
             if len(args) == arg_count:
                 handler(*args)
             else:
-                logger.warning(
+                _logger.warning(
                     "Handler {} expects {} arguments, but {} were provided.".format(
                         handler, arg_count, len(args)
                     )
                 )
 
         except Exception as e:
-            logger.error(
+            _logger.error(
                 "An exception occurred during event handling for event {}: {}".format(
                     event, e
                 )
@@ -215,13 +208,13 @@ class PySimpleEvent:
             while True:
                 window_obj = sg.read_all_windows()
                 if window_obj is None:
-                    logger.warning("No window_obj found")
+                    _logger.warning("No window_obj found")
                     break
 
                 window, event, values = window_obj
 
                 if window_log:
-                    logger.debug("Event: {}, Values: {}".format(event, values))
+                    _logger.debug("Event: {}, Values: {}".format(event, values))
 
                 if window is None:
                     break
