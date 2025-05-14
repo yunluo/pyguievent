@@ -23,7 +23,7 @@ setup(
     author_email="sp91@qq.com",
     keywords=keywords,
     description="A simple tool to create events to PySimpleGUI or FreeSimpleGUI",
-    packages=["pyguievent"],
+    py_modules=['pyguievent'],
     install_requires=["PySimpleGUI"],
     python_requires=">=3",
     project_urls={
