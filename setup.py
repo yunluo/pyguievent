@@ -15,7 +15,7 @@ keywords = [
 setup(
     name="pyguievent",
     url="https://github.com/yunluo/pyguievent",
-    version="0.0.6",
+    version="0.0.7",
     license="GPL-3.0 license",
     author="yunluo",
     long_description=readme,
@@ -23,8 +23,7 @@ setup(
     author_email="sp91@qq.com",
     keywords=keywords,
     description="A simple tool to create events to PySimpleGUI or FreeSimpleGUI",
-    py_modules=['pyguievent'],
-    install_requires=["PySimpleGUI"],
+    py_modules=["pyguievent"],
     python_requires=">=3",
     project_urls={
         "Source": "https://github.com/yunluo/pyguievent",

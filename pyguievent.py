@@ -13,7 +13,7 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "yunluo"
 
 
@@ -91,8 +91,9 @@ class PySimpleEvent:
         :param func:函数名，注意，这里只写函数名，不带括号
         :return:
         """
-        if not callable(func):
-            _logger.error("Function {} is not callable.".format(func))
+
+        if not str(func.__name__).startswith("on_"):
+            _logger.error("function {} is not start with on_.".format(func))
             return
 
         # 确保事件键的唯一性
@@ -106,6 +107,7 @@ class PySimpleEvent:
         :param event_names: 事件名，可以是字符串或列表，都是GUI的组件key
         :return: 装饰器函数
         """
+
         def decorator(func: Callable):
             if isinstance(event_names, str):
                 self._add_event(event_names, func)
@@ -189,10 +191,10 @@ class PySimpleEvent:
             )
 
     def run_event(
-            self,
-            main_window: sg.Window,
-            close_event: str = None,  # type: ignore
-            window_log: bool = False,
+        self,
+        main_window: sg.Window,
+        close_event: str = None,  # type: ignore
+        window_log: bool = False,
     ) -> None:
         """
         界面主循环

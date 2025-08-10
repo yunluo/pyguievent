@@ -13,7 +13,7 @@ if event == "btn1":
 
 ~~~python
 @app.bind_event('btn1')
-def do_something():
+def on_do_something():
     pass
 ~~~
 
@@ -40,7 +40,6 @@ python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未�
 ~~~python
 import PySimpleGUI as sg
 from pyguievent import PySimpleEvent
-
 
 app = PySimpleEvent()
 
@@ -83,7 +82,7 @@ def make_main_window() -> sg.Window:
         "测试程式窗口",
         layout,
         keep_on_top=True,
-        finalize=True,# 这个属性是必须要的
+        finalize=True,  # 这个属性是必须要的
         return_keyboard_events=True,
     )
 
@@ -126,7 +125,7 @@ def on_win_fun(window: sg.Window):
 
 
 @app.bind_event("val_fun")
-def on_val_fun(values):
+def on_val_fun(values: dict):
     lot1 = values.get("lot1")
     lot2 = values.get("lot2")
     sg.popup(
@@ -140,7 +139,7 @@ def on_val_fun(values):
 
 
 @app.bind_event(["win_val_fun", "lot2"])
-def on_win_val_fun(window, values):
+def on_win_val_fun(window: sg.Window, values: dict):
     sg.popup(
         "软件说明：",
         "新建任务",
@@ -156,6 +155,7 @@ def main():
 
     # 增加了一个Exit退出事件
     app.run_event(main_window, "Exit")
+
 
 if __name__ == '__main__':
     main()
