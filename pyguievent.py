@@ -1,19 +1,17 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
-import logging
 import functools
+import logging
 from typing import Callable, Union
 
 try:
     import PySimpleGUI as sg  # noqa
 except ImportError:
-    # 默认使用PySimpleGUI，但是在版本5后收费
-    # 所以这里使用免费版的FreeSimpleGUI
-    import FreeSimpleGUI as sg  # noqa
+    import PySimpleGUI4 as sg  # noqa
 
 _logger = logging.getLogger(__name__)
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 __author__ = "yunluo"
 
 
@@ -115,7 +113,7 @@ class PySimpleEvent:
                 for event_name in event_names:
                     self._add_event(event_name, func)
             else:
-                _logger.warning("Invalid event_names: {}".format(event_names))
+                raise TypeError("event_names must be a string or a list of strings")  # noqa
 
             # 预处理函数的参数信息
             func_args = func.__code__.co_varnames  # noqa 类型是tuple
@@ -205,6 +203,7 @@ class PySimpleEvent:
         """
         try:
             main_window.finalize()
+            main_window.disable_debugger()
             while True:
                 window_obj = sg.read_all_windows()
                 if window_obj is None:

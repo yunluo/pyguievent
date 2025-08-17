@@ -7,22 +7,24 @@ keywords = [
     "pyguievent",
     "PySimpleEvent",
     "PySimpleGUI",
+    "PySimpleGUI4",
     "FreeSimpleGUI",
     "GUI",
     "events for simplegui",
 ]
+import pyguievent
 
 setup(
     name="pyguievent",
     url="https://github.com/yunluo/pyguievent",
-    version="0.0.7",
+    version=pyguievent.__version__,
     license="GPL-3.0 license",
-    author="yunluo",
+    author=pyguievent.__author__,
     long_description=readme,
     long_description_content_type="text/markdown",
     author_email="sp91@qq.com",
     keywords=keywords,
-    description="A simple tool to create events to PySimpleGUI or FreeSimpleGUI",
+    description="A simple tool to create events to PySimpleGUI or PySimpleGUI4",
     py_modules=["pyguievent"],
     python_requires=">=3",
     project_urls={
