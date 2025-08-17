@@ -26,6 +26,7 @@ setup(
     keywords=keywords,
     description="A simple tool to create events to PySimpleGUI or PySimpleGUI4",
     py_modules=["pyguievent"],
+    requires=["PySimpleGUI4"],
     python_requires=">=3",
     project_urls={
         "Source": "https://github.com/yunluo/pyguievent",
