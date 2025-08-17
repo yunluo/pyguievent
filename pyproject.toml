@@ -28,3 +28,5 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/yunluo/pyguievent"
 Repository = "https://github.com/yunluo/pyguievent"
+[tool.uv.extra-build-dependencies]
+pyguievent = ["PySimpleGUI4"]
