@@ -11,7 +11,7 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __author__ = "yunluo"
 
 
@@ -25,7 +25,7 @@ def singleton_window(func: Callable):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        key = "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
+        key = "{}_{}_{}".format(str(func.__name__), str(args), str(kwargs))
 
         if key in _instances:
             window = _instances[key]
