@@ -1,7 +1,7 @@
 name: Publish to PyPI
 
 on:
-  release:
+  push:
     tags:
       - 'v*'
 
@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # 用于可信发布到 PyPI
+      contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -30,3 +30,9 @@ jobs:
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
+      - name: GH Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "dist/*"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
