@@ -11,7 +11,7 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-__version__ = "0.0.9"
+__version__ = "0.0.9.post"
 __author__ = "yunluo"
 
 
