@@ -13,6 +13,7 @@ _logger = logging.getLogger(__name__)
 
 __version__ = "0.0.9.post"
 __author__ = "yunluo"
+__license__ = "GPL-3.0-or-later"
 
 
 def singleton_window(func: Callable):
