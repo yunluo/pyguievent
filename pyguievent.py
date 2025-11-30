@@ -2,19 +2,27 @@
 # -*- coding: utf-8 -*-
 import functools
 import logging
-from typing import Callable, Union
+from typing import Callable, Union, Dict, Any, Optional, List
+
 
 try:
     import PySimpleGUI as sg  # noqa
 except ImportError:
-    import PySimpleGUI4 as sg  # noqa
+    sg = None  # type: ignore
 
-_logger = logging.getLogger(__name__)
+try:
+    import wx  # noqa
+except ImportError:
+    wx = None  # type: ignore
 
-__version__ = "0.0.9.post"
+__version__ = "0.0.10 "
 __author__ = "yunluo"
 __license__ = "GPL-3.0-or-later"
 
+
+__all__ = ['PySimpleEvent', 'PySimpleEventWx', 'singleton_window']
+
+_logger = logging.getLogger(__name__)
 
 def singleton_window(func: Callable):
     """
@@ -40,7 +48,7 @@ def singleton_window(func: Callable):
 
     return wrapper
 
-
+ 
 class PySimpleEvent:
     """
     使用该类创建GUI的事件循环。
@@ -230,3 +238,192 @@ class PySimpleEvent:
         finally:
             if main_window:
                 main_window.close()
+
+
+class PySimpleEventWx:
+    """
+    使用该类创建wxPython的事件循环。
+    使用方法：
+    import wx
+    from pyguievent import PySimpleEventWx
+
+    app = PySimpleEventWx()
+
+    @app.bind_event(wx.EVT_BUTTON, button_id)
+    def on_button_click(event):
+        print("Button clicked!") 
+
+    # 也支持绑定到多个组件
+    @app.bind_event(wx.EVT_TEXT, [text_id1, text_id2])
+    def on_text_change(event):
+        print("Text changed!")
+
+    # 然后在wxPython应用中使用
+    frame = wx.Frame(None, title="测试窗口")
+    app.run_event(frame)
+    """
+
+    def __init__(self) -> None:
+        """
+        初始化事件处理器字典
+        """
+        if wx is None:
+            raise ImportError("wxPython is required for PySimpleEventWx")
+            
+        self._event_handlers = {} # Dict[int, Dict[Callable, Dict[str, Any]]]
+        self._bound_events = {} # Dict[wx.Window, List]
+        self._main_window = None # Optional[wx.Window]
+    
+    @property
+    def get_events(self) -> Dict[int, Dict[Callable, Dict[str, Any]]]:
+        """
+        获取所有已注册的事件
+        :return: 事件字典
+        """
+        return self._event_handlers
+    
+    def _add_event(self, event_type: int, handler_id: Union[int, str], func: Callable) -> None:
+        """
+        添加事件处理器
+        :param event_type: wxPython事件类型,如wx.EVT_BUTTON
+        :param handler_id: 事件处理器ID,可以是组件ID或自定义标识符
+        :param func: 事件处理函数
+        """
+        if not hasattr(handler_id, '__int__'):
+            # 对于非整数类型的handler_id，尝试将其转换为字符串的哈希值
+            handler_id = hash(str(handler_id))
+        else:
+            handler_id = int(handler_id)
+        
+        if event_type not in self._event_handlers:
+            self._event_handlers[event_type] = {}
+        
+        # 存储函数及其参数信息
+        func_args = func.__code__.co_varnames
+        func_arg_count = func.__code__.co_argcount
+        
+        self._event_handlers[event_type][handler_id] = {
+            'func': func,
+            'args': func_args,
+            'count': func_arg_count
+        }
+    
+    def bind_event(self, event_type: int, handler_ids: Union[int, str, List[Union[int, str]]]):
+        """
+        事件绑定装饰器
+        :param event_type: wxPython事件类型,如wx.EVT_BUTTON
+        :param handler_ids: 处理器ID或ID列表
+        :return: 装饰器函数
+        """
+        def decorator(func: Callable):
+            if isinstance(handler_ids, (int, str)):
+                self._add_event(event_type, handler_ids, func)
+            elif isinstance(handler_ids, list):
+                for handler_id in handler_ids:
+                    self._add_event(event_type, handler_id, func)
+            else:
+                raise TypeError("handler_ids must be an int, str, or a list of ints or strs")
+            
+            return func
+        
+        return decorator
+    
+    def apply_event(self, event: wx.Event) -> None:
+        """
+        处理事件
+        :param event: wxPython事件对象
+        """
+        try:
+            # 获取事件类型和触发事件的窗口组件
+            event_type = event.GetEventType()
+            window = event.GetEventObject()
+            window_id = window.GetId()
+            
+            # 查找对应的事件处理器
+            if event_type in self._event_handlers:
+                handlers = self._event_handlers[event_type]
+                
+                # 优先查找精确匹配的处理器
+                if window_id in handlers:
+                    handler_info = handlers[window_id]
+                    func = handler_info['func']
+                    args = handler_info['args']
+                    arg_count = handler_info['count']
+                    
+                    # 根据函数参数决定如何调用
+                    if arg_count == 0:
+                        func()
+                    elif 'event' in args:
+                        func(event)
+                    else:
+                        # 默认传递event参数
+                        func(event)
+                else:
+                    # 尝试查找是否有使用字符串ID绑定的处理器
+                    for handler_id, handler_info in handlers.items():
+                        if isinstance(handler_id, int):
+                            continue
+                        
+                        func = handler_info['func']
+                        args = handler_info['args']
+                        arg_count = handler_info['count']
+                        
+                        if arg_count == 0:
+                            func()
+                        elif 'event' in args:
+                            func(event)
+                        else:
+                            func(event)
+        except Exception as e:
+            _logger.error("An exception occurred during event handling: {}".format(e))
+    
+    def _wx_event_handler(self, event_type: int):
+        """
+        创建wxPython事件处理器包装器
+        :param event_type: 事件类型
+        :return: 事件处理器函数
+        """
+        def handler(event: wx.Event):
+            self.apply_event(event)
+            # 允许事件继续传播
+            event.Skip()
+        
+        return handler
+    
+    def run_event(self, main_window: wx.Window, start_loop: bool = True) -> None:
+        """
+        绑定所有注册的事件并启动主循环
+        :param main_window: 主窗口对象
+        :param start_loop: 是否启动事件循环
+        """
+        self._main_window = main_window
+        
+        # 为每个注册的事件类型绑定处理器
+        for event_type, handlers in self._event_handlers.items():
+            # 创建一个通用的事件处理器
+            wx_handler = self._wx_event_handler(event_type)
+            
+            # 绑定到主窗口
+            main_window.Bind(event_type, wx_handler)
+            
+            # 记录已绑定的事件
+            if main_window not in self._bound_events:
+                self._bound_events[main_window] = []
+            self._bound_events[main_window].append((event_type, wx_handler))
+        
+        # 如果需要，启动应用程序主循环
+        if start_loop:
+            app = wx.GetApp()
+            if app is None:
+                app = wx.App()
+            main_window.Show()
+            app.MainLoop()
+    
+    def unbind_all(self) -> None:
+        """
+        解绑所有已绑定的事件
+        """
+        for window, events in self._bound_events.items():
+            for event_type, handler in events:
+                window.Unbind(event_type, handler=handler)
+        self._bound_events.clear()

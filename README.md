@@ -1,6 +1,6 @@
 ![Static Badge](https://img.shields.io/badge/Python-34-1?style=for-the-badge)  ![PyPI - Version](https://img.shields.io/pypi/v/pyguievent?style=for-the-badge&link=https%3A%2F%2Fpypi.org%2Fproject%2Fpyguievent%2F)  ![PyPI - Downloads](https://img.shields.io/pypi/dm/pyguievent?style=for-the-badge&link=https%3A%2F%2Fpypi.org%2Fproject%2Fpyguievent%2F)
 # 介绍
-基于PySimpleGUI的一个简单的事件循环库
+基于PySimpleGUI和wxPython的简单事件循环库，提供装饰器风格的事件绑定功能。
 
 [PYPI主页地址](https://pypi.org/project/pyguievent/)
 # 为什么要用这个库
@@ -26,8 +26,14 @@ pip install pyguievent
 ## 版本兼容性
 python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未测试
 
-## 特别说明
-事件绑定和事件函数的有点问题，只能接受以下四种形式
+## 库支持的GUI框架
+本库支持两个主要的GUI框架：
+
+1. **PySimpleGUI** - 原始支持的框架
+2. **wxPython** - 新增支持的功能完善的GUI框架
+
+## 特别说明（PySimpleGUI）
+使用PySimpleEvent类时，事件绑定和事件函数只能接受以下形式：
 1. func()，这种无参数函数
 2. func(values=)，这种关键字参数函数，只有一个参数是值
 3. func(window=)，这种关键字参数函数，只有一个参数是窗口
@@ -35,6 +41,13 @@ python3.4以上,WindowsXP 以上的Windows系统都可以用，其他系统未�
 5. 参数有window和event,values,顺序无所谓
 6. sg.Window 窗口对象必须要使用finalize=True
 7. 强制约束事件函数以 **on_** 开头
+
+## 特别说明（wxPython）
+使用PySimpleEventWx类时，请注意以下几点：
+1. 需要安装wxPython：`pip install wxPython`
+2. 事件处理器通常接收一个wx.Event参数
+3. 事件绑定使用wxPython的事件类型常量（如wx.EVT_BUTTON）
+4. 组件ID可以是整数ID或字符串标识符
 
 
 ## 使用方法
@@ -97,6 +110,85 @@ def on_save_options():
 @app.bind_event('lot1')
 def on_input_lot1(window: sg.Window, values: dict):
     window["lot4"].update(values.get("lot1"))
+
+## 使用方法（wxPython）
+
+```python
+import wx
+from pyguievent import PySimpleEventWx
+
+# 创建事件管理器实例
+app = PySimpleEventWx()
+
+# 创建窗口
+frame = wx.Frame(None, title="wxPython示例", size=(400, 300))
+panel = wx.Panel(frame)
+
+# 创建组件
+button = wx.Button(panel, label="点击我", pos=(50, 50))
+text_ctrl = wx.TextCtrl(panel, pos=(50, 100), size=(200, -1))
+result_text = wx.StaticText(panel, label="结果将显示在这里", pos=(50, 150))
+
+# 绑定事件 - 按钮点击
+@app.bind_event(wx.EVT_BUTTON, button.GetId())
+def on_button_click(event):
+    result_text.SetLabel("按钮被点击了！")
+
+# 绑定事件 - 文本输入
+@app.bind_event(wx.EVT_TEXT, text_ctrl.GetId())
+def on_text_change(event):
+    text = event.GetString()
+    result_text.SetLabel(f"输入的文本: {text}")
+
+# 绑定事件 - 多个组件
+# 假设有另一个文本框text_ctrl2
+# @app.bind_event(wx.EVT_TEXT, [text_ctrl.GetId(), text_ctrl2.GetId()])
+# def on_text_change_multiple(event):
+#     # 处理事件
+
+# 运行事件循环
+app.run_event(frame)
+```
+
+## 在类中使用PySimpleEventWx
+
+```python
+import wx
+from pyguievent import PySimpleEventWx
+
+class MyFrame(wx.Frame):
+    def __init__(self):
+        super().__init__(None, title="类中的使用示例", size=(400, 300))
+        
+        # 创建事件管理器实例
+        self.event_manager = PySimpleEventWx()
+        
+        # 创建UI
+        panel = wx.Panel(self)
+        self.button = wx.Button(panel, label="类中的按钮", pos=(50, 50))
+        
+        # 绑定事件
+        self._bind_events()
+    
+    def _bind_events(self):
+        # 在类方法中绑定事件
+        @self.event_manager.bind_event(wx.EVT_BUTTON, self.button.GetId())
+        def on_button_click(event):
+            wx.MessageBox("按钮被点击了！", "消息", wx.OK)
+    
+    def run(self):
+        # 运行事件循环
+        self.event_manager.run_event(self)
+
+# 创建并运行应用
+if __name__ == "__main__":
+    frame = MyFrame()
+    frame.run()
+```
+
+## 查看完整示例
+
+更详细的wxPython示例可以在`examples/wxpython_example.py`文件中找到。
 
 
 @app.bind_event('lot2')
