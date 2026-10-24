@@ -37,6 +37,7 @@ def singleton_window(func: Callable):
     窗口单例化装饰器，确保相同参数的窗口只创建一个实例。
     窗口未关闭时再次调用会置顶显示并返回已有实例，窗口已关闭时自动清理并重建。
     相同的逻辑参数无论用位置参数还是关键字参数传入，都视为同一实例。
+    并发调用同一参数时也只创建一个实例（创建过程在锁内）。
 
     :param func: 窗口创建函数，返回的对象建议支持 was_closed() 和 bring_to_front() 方法
                  （PySimpleGUI的Window对象原生支持），不支持时按"未关闭、不置顶"处理，不会报错
@@ -45,19 +46,27 @@ def singleton_window(func: Callable):
     _instances = {}
     _lock = threading.RLock()
 
+    # 签名在装饰时解析一次，wrapper复用，避免每次调用重新解析
+    try:
+        _sig = inspect.signature(func)
+    except (TypeError, ValueError):
+        _sig = None
+
     def _make_key(args, kwargs):
         # 规范化参数：绑定到函数签名后生成键，
         # 位置参数和关键字参数两种传参方式会得到同一个键
-        try:
-            bound = inspect.signature(func).bind(*args, **kwargs)
+        if _sig is not None:
             try:
-                bound.apply_defaults()
-            except AttributeError:
-                pass  # Python 3.4 没有 apply_defaults
-            return "{}_{}".format(func.__name__, str(bound.arguments.items()))
-        except TypeError:
-            # 参数无法绑定时退回原始字符串，参数不可哈希也不会报错
-            return "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
+                bound = _sig.bind(*args, **kwargs)
+                try:
+                    bound.apply_defaults()
+                except AttributeError:
+                    pass  # Python 3.4 没有 apply_defaults
+                return "{}_{}".format(func.__name__, str(bound.arguments.items()))
+            except TypeError:
+                pass  # 参数与签名不匹配，退回原始字符串
+        # 参数无法绑定时退回原始字符串，参数不可哈希也不会报错
+        return "{}_{}_{}".format(func.__name__, str(args), str(kwargs))
 
     def _is_closed(window):
         try:
@@ -81,10 +90,10 @@ def singleton_window(func: Callable):
                     return window
                 del _instances[key]
 
-        new_window = func(*args, **kwargs)
-        with _lock:
+            # 创建过程放在锁内，并发首调同一参数时也只创建一个实例
+            new_window = func(*args, **kwargs)
             _instances[key] = new_window
-        return new_window
+            return new_window
 
     def clear_instances():
         """清理所有窗口实例"""
@@ -144,7 +153,10 @@ class PySimpleEvent:
         """
         初始化一个事件数据字典
         """
+        # 事件注册表：组件key -> 处理函数
         self._event_handlers = {}
+        # 处理函数元数据：处理函数 -> 参数信息（与注册表分开存放，get_events返回的才是纯注册表）
+        self._handler_meta = {}
         # 回车键和特殊键的事件名集合
         self._enter_keys = ("special 16777220", "special 16777221", "\r")
 
@@ -176,14 +188,14 @@ class PySimpleEvent:
         获取处理函数的元数据
         支持装饰器链：追溯 __wrapped__ 链查找元数据
         """
-        if handler in self._event_handlers:
-            return self._event_handlers[handler]
+        if handler in self._handler_meta:
+            return self._handler_meta[handler]
 
         original = handler
         while hasattr(original, "__wrapped__"):
             original = original.__wrapped__
-            if original in self._event_handlers:
-                return self._event_handlers[original]
+            if original in self._handler_meta:
+                return self._handler_meta[original]
 
         return {}
 
@@ -230,15 +242,20 @@ class PySimpleEvent:
             while hasattr(original_func, "__wrapped__"):
                 original_func = original_func.__wrapped__
 
-            func_arg_count = original_func.__code__.co_argcount
-            # 只取参数部分的变量名，避免函数体内的局部变量被误判为参数
-            func_args = original_func.__code__.co_varnames[:func_arg_count]
-            if inspect.ismethod(original_func):
-                # 绑定方法的第一个参数self已经由绑定传入，不计入
-                func_args = func_args[1:]
-                func_arg_count = max(func_arg_count - 1, 0)
+            if hasattr(original_func, "__code__"):
+                func_arg_count = original_func.__code__.co_argcount
+                # 只取参数部分的变量名，避免函数体内的局部变量被误判为参数
+                func_args = original_func.__code__.co_varnames[:func_arg_count]
+                if inspect.ismethod(original_func):
+                    # 绑定方法的第一个参数self已经由绑定传入，不计入
+                    func_args = func_args[1:]
+                    func_arg_count = max(func_arg_count - 1, 0)
+            else:
+                # functools.partial、内置函数等没有__code__的可调用对象，动态探测签名
+                func_args = self._probe_arg_names(original_func)
+                func_arg_count = len(func_args)
 
-            self._event_handlers[wrapper] = {
+            self._handler_meta[wrapper] = {
                 "args": func_args,
                 "count": func_arg_count,
                 "original": original_func,
@@ -331,7 +348,10 @@ class PySimpleEvent:
                 "install one of them first: pip install PySimpleGUI"
             )
         try:
-            main_window.finalize()
+            # 窗口已创建过tk根（创建时传了finalize=True或已手动finalize）就不再重复finalize，
+            # PySimpleGUI的finalize内部是Read(timeout=1)，重复调用会泵走待处理的事件
+            if getattr(main_window, "TKroot", None) is None:
+                main_window.finalize()
             while True:
                 window_obj = sg.read_all_windows()
                 if window_obj is None:

@@ -249,6 +249,109 @@ def test_singleton_remove_instance():
     print("[OK] remove_instance/clear_instances 正常")
 
 
+# ---------------- run_event / 装饰器边界 ----------------
+
+def test_run_event_finalize_guard():
+    """run_event对已finalize的窗口不再重复finalize；未finalize的窗口会finalize"""
+    import pyguievent as pe
+
+    class FakeWin(object):
+        def __init__(self, pre_finalized):
+            self.finalize_calls = 0
+            self.close_calls = 0
+            if pre_finalized:
+                self.TKroot = object()  # 模拟tk根已创建
+
+        def finalize(self):
+            self.finalize_calls += 1
+
+        def close(self):
+            self.close_calls += 1
+
+    class FakeSg(object):
+        WIN_CLOSED = "__WIN_CLOSED__"
+
+        def __init__(self, win):
+            self._win = win
+            self._read = False
+
+        def read_all_windows(self):
+            if not self._read:
+                self._read = True
+                return self._win, self.WIN_CLOSED, {}
+            return None
+
+    orig_sg = pe.sg
+    try:
+        app2 = PySimpleEvent()
+
+        # 已finalize的窗口：不应再次finalize，直接进入事件循环
+        win = FakeWin(pre_finalized=True)
+        pe.sg = FakeSg(win)
+        app2.run_event(win)
+        assert win.finalize_calls == 0, "已finalize的窗口不应再次finalize"
+        assert win.close_calls == 2, "WIN_CLOSED分支和finally应各close一次"
+
+        # 未finalize的窗口：应调用finalize
+        win2 = FakeWin(pre_finalized=False)
+        pe.sg = FakeSg(win2)
+        app2.run_event(win2)
+        assert win2.finalize_calls == 1, "未finalize的窗口应被finalize"
+    finally:
+        pe.sg = orig_sg
+    print("[OK] run_event对已finalize窗口跳过重复finalize")
+
+
+def test_singleton_concurrent_creation():
+    """并发首调同一参数只创建一个实例"""
+    import threading
+    import time
+
+    creations = []
+
+    @singleton_window
+    def make_thread_window(tag):
+        creations.append(tag)
+        time.sleep(0.05)  # 放大竞态窗口
+        return {"tag": tag}
+
+    results = []
+    threads = [
+        threading.Thread(target=lambda: results.append(make_thread_window("same")))
+        for _ in range(5)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(creations) == 1, "并发首调应只创建一次，实际{}".format(len(creations))
+    assert all(r is results[0] for r in results), "所有线程应拿到同一实例"
+    make_thread_window.clear_instances()
+    print("[OK] 并发首调只创建一个实例")
+
+
+def test_bind_partial_and_builtin():
+    """无__code__的可调用对象（functools.partial/内置函数）不崩且正确分发"""
+    import functools
+
+    app3 = PySimpleEvent()
+    got = {}
+
+    def base(tag, window, values):
+        got["tag"] = tag
+
+    # partial绑定后，已固定的位置参数不参与分发
+    app3.bind_event("btn_partial")(functools.partial(base, "TAG"))
+    app3.apply_event(MockWindow(None), "btn_partial", {"k": "v"})
+    assert got.get("tag") == "TAG", "partial分发失败: {}".format(got)
+
+    # 内置函数无法取签名（探测返回空），分发时按无参调用，异常被隔离不外抛
+    app3._add_event("btn_builtin", len)
+    app3.apply_event(MockWindow(None), "btn_builtin", {"k": "v"})
+    print("[OK] partial/内置函数等无__code__可调用对象正常处理")
+
+
 if __name__ == "__main__":
     try:
         test_argument_order_independent()
@@ -261,6 +364,9 @@ if __name__ == "__main__":
         test_all_params_handler()
         test_get_events_registry()
         test_handler_exception_isolated()
+        test_run_event_finalize_guard()
+        test_singleton_concurrent_creation()
+        test_bind_partial_and_builtin()
         test_singleton_unhashable_args()
         test_singleton_plain_object()
         test_singleton_closed_rebuild()
