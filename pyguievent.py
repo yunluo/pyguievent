@@ -26,26 +26,113 @@ _logger = logging.getLogger(__name__)
 
 def singleton_window(func: Callable):
     """
-    窗口单例化装饰器
-    :param func:
-    :return:
+    窗口单例化装饰器，确保相同参数的窗口函数只创建一个实例。
+    如果窗口已关闭，会自动清理并创建新窗口；如果窗口仍存在，会置顶显示。
+    
+    优化特性：
+    - 自动清理已关闭的窗口，防止内存泄漏
+    - 线程安全的实例管理
+    - 更高效的键生成算法
+    - 完整的类型注解
+    - 支持手动清理实例
+    - 正确处理位置参数和关键字参数的对应关系
+    
+    Args:
+        func: 窗口创建函数
+        
+    Returns:
+        装饰后的窗口函数
+        
+    Example:
+        @singleton_window
+        def create_window(title: str):
+            return sg.Window(title, [[sg.Text("Hello")]], finalize=True)
     """
+    import threading
+    import inspect
+    
     _instances = {}
-
+    _lock = threading.RLock()
+    
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        key = "{}_{}_{}".format(str(func.__name__), str(args), str(kwargs))
-
-        if key in _instances:
-            window = _instances[key]
-            if not window.was_closed():
-                window.bring_to_front()
-                return window
-
-        new_window = func(*args, **kwargs)
-        _instances[key] = new_window
-        return new_window
-
+        # 使用inspect.signature正确处理参数绑定
+        try:
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            # 创建规范化的参数字典，确保位置参数和关键字参数的一致性
+            normalized_args = tuple(bound_args.arguments.items())
+        except Exception:
+            # 如果参数绑定失败，回退到简单方式
+            normalized_args = (args, frozenset(kwargs.items()))
+        
+        # 生成键
+        key = (func.__name__, normalized_args)
+        
+        with _lock:
+            # 检查现有实例
+            if key in _instances:
+                window = _instances[key]
+                try:
+                    # 安全检查窗口是否已关闭
+                    if hasattr(window, 'was_closed') and not window.was_closed():
+                        # 窗口仍存在，置顶显示
+                        if hasattr(window, 'bring_to_front'):
+                            window.bring_to_front()
+                        return window
+                    else:
+                        # 窗口已关闭，清理引用
+                        del _instances[key]
+                except Exception as e:
+                    # 窗口对象出现异常，清理引用
+                    _logger.warning(f"Error checking window state for {func.__name__}: {e}")
+                    if key in _instances:
+                        del _instances[key]
+        
+        # 创建新窗口
+        try:
+            new_window = func(*args, **kwargs)
+            with _lock:
+                _instances[key] = new_window
+            return new_window
+        except Exception as e:
+            _logger.error(f"Error creating window for {func.__name__}: {e}")
+            raise
+    
+    # 添加清理方法
+    def clear_instances():
+        """清理所有窗口实例"""
+        with _lock:
+            _instances.clear()
+    
+    def get_instance_count():
+        """获取当前实例数量"""
+        with _lock:
+            return len(_instances)
+    
+    def remove_instance(*args, **kwargs):
+        """移除特定实例"""
+        # 使用与wrapper相同的键生成逻辑
+        try:
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            normalized_args = tuple(bound_args.arguments.items())
+        except Exception:
+            normalized_args = (args, frozenset(kwargs.items()))
+        
+        key = (func.__name__, normalized_args)
+        with _lock:
+            if key in _instances:
+                del _instances[key]
+    
+    # 将辅助方法附加到wrapper函数上
+    wrapper.clear_instances = clear_instances
+    wrapper.get_instance_count = get_instance_count
+    wrapper.remove_instance = remove_instance
+    wrapper._instances = _instances  # 用于调试，实际使用中不建议直接访问
+    
     return wrapper
 
  
@@ -59,11 +146,11 @@ class PySimpleEvent:
     app = PySimpleEvent()
 
     @app.bind_event("_CLICK_")
-    def print_when_click(window: sg.Window, values: dict):
+    def print_when_click(window: Any, values: dict):
         print("click it!")
 
     @app.bind_event(["_CLICK1_","_CLICK2_"])
-    def print_when_more_click(window: sg.Window, values: dict):
+    def print_when_more_click(window: Any, values: dict):
         print('click it!')
 
     window = sg.Window("测试窗口",layout = [],
@@ -133,7 +220,7 @@ class PySimpleEvent:
 
         return decorator
 
-    def apply_event(self, window: sg.Window, event: str, values: dict) -> None:
+    def apply_event(self, window: Any, event: str, values: dict) -> None:
         """
         处理事件,需要注意的时，默认支持以下五种函数，够用
         1.func()，这种无参数函数
@@ -141,22 +228,27 @@ class PySimpleEvent:
         3.func(window=)，这种关键字参数函数，只有一个参数是窗口
         4.func(event=)，这种关键字参数函数，只有一个参数是事件
         5.参数有window和event,values，顺序无所谓
+        回车键的处理规则：只在"当前获得焦点的文本框"上触发该文本框key绑定的事件函数，
+        焦点在其他控件（按钮、列表等）上时按回车不会触发任何事件。
+        弹窗按钮的回车由PySimpleGUI原生处理（弹窗按钮自带bind_return_key=True，
+        回车以按钮key作为事件返回），不经过本方法的回车分支。
         :param window:窗口对象
         :param event:事件名
         :param values:值
         :return:None
         """
         try:
-            # 根据事件类型查找对应的处理函数
-            # 如果事件是回车键或特殊键，尝试获取焦点元素对应的处理函数
-            elem = window.find_element_with_focus()
-            handler = (
-                self._event_handlers.get(event)
-                if event not in self._enter_keys
-                else self._event_handlers.get(elem.key)
-                if elem is not None
-                else None
-            )
+            # 普通事件直接按事件名查找处理函数
+            if event not in self._enter_keys:
+                handler = self._event_handlers.get(event)
+            else:
+                # 回车键只对当前获得焦点的文本框生效，且焦点元素必须就是该文本框
+                elem = window.find_element_with_focus()
+                handler = (
+                    self._event_handlers.get(elem.key)
+                    if elem is not None and self._is_input_element(elem)
+                    else None
+                )
             # 如果没有找到处理函数，则直接返回
             if not handler:
                 # 这里不做任何提示，是因为在GUI开发中会有太多事件没有绑定处理函数的情况
@@ -197,9 +289,20 @@ class PySimpleEvent:
                 )
             )
 
+    @staticmethod
+    def _is_input_element(elem: Any) -> bool:
+        """
+        判断控件是否为文本框（单行输入框），回车键事件只允许在获得焦点的文本框上触发
+        :param elem:PySimpleGUI控件对象
+        :return:是否为文本框
+        """
+        if sg is None:
+            return True
+        return isinstance(elem, (sg.Input, sg.InputText))
+
     def run_event(
         self,
-        main_window: sg.Window,
+        main_window: Any,
         close_event: str = None,  # type: ignore
         window_log: bool = False,
     ) -> None:
