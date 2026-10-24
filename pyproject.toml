@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyguievent"
-version = "0.0.10"
-description = "A simple tool to create events to PySimpleGUI or PySimpleGUI4"
+version = "0.0.11"
+description = "A simple tool to create events to PySimpleGUI or FreeSimpleGUI"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 authors = [
@@ -15,7 +15,6 @@ keywords = [
     "pyguievent",
     "PySimpleEvent",
     "PySimpleGUI",
-    "PySimpleGUI4",
     "FreeSimpleGUI",
     "GUI",
     "events for simplegui"
@@ -25,5 +24,3 @@ requires-python = ">=3.4"
 [project.urls]
 Homepage = "https://github.com/yunluo/pyguievent"
 Repository = "https://github.com/yunluo/pyguievent"
-[tool.uv.extra-build-dependencies]
-pyguievent = ["PySimpleGUI4"]

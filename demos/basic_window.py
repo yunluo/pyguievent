@@ -50,6 +50,7 @@ def make_main_window() -> sg.Window:
         "测试程式窗口",
         layout,
         keep_on_top=True,
+        finalize=True,
         return_keyboard_events=True,
     )
 
@@ -115,7 +116,7 @@ def on_val_fun(values):
     )
 
 
-@app.bind_event(["win_val_fun", "lot2"])
+@app.bind_event("win_val_fun")
 def on_win_val_fun(window, values):
     sg.popup(
         "软件说明：",
